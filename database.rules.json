@@ -1,0 +1,19 @@
+{
+  "rules": {
+    "//": "Live processing progress at progress/{uid}/{docId} = { step, percent }. Each user reads/writes only their own subtree; default-deny elsewhere.",
+    ".read": false,
+    ".write": false,
+    "progress": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "$docId": {
+          ".validate": "newData.hasChildren(['step', 'percent'])",
+          "step": { ".validate": "newData.isString()" },
+          "percent": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100" },
+          "$other": { ".validate": false }
+        }
+      }
+    }
+  }
+}

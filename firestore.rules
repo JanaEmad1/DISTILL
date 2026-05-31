@@ -1,0 +1,37 @@
+rules_version = '2';
+
+// Distill Firestore security rules.
+// Each user can read and write ONLY their own document tree. Nothing is
+// readable or writable without an authenticated session whose uid matches the
+// {uid} path segment. Default-deny: anything not matched below is rejected.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+
+      // Documents and their AI-derived insights.
+      match /documents/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Smart folders / collections.
+      match /folders/{folderId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Per-document chats and their messages.
+      match /chats/{chatId} {
+        allow read, write: if isOwner(uid);
+
+        match /messages/{messageId} {
+          allow read, write: if isOwner(uid);
+        }
+      }
+    }
+  }
+}
