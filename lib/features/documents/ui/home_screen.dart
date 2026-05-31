@@ -206,14 +206,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               title: Text('Delete',
                   style: TextStyle(color: context.colors.error)),
               onTap: () {
-                ref.read(documentRepositoryProvider)?.delete(doc.id);
                 Navigator.pop(context);
+                _confirmDelete(doc);
               },
             ),
           ],
         ),
       ),
     );
+  }
+
+  /// Guards the destructive delete behind a confirmation dialog (mirrors the
+  /// sign-out confirm in profile_screen). Delete is permanent — in live mode it
+  /// also removes the stored file — so there is no undo.
+  Future<void> _confirmDelete(DocumentModel doc) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete document?'),
+        content: Text(
+            '"${doc.name}" and its summary will be permanently deleted.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: context.colors.error,
+                foregroundColor: context.colors.onError),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await ref.read(documentRepositoryProvider)?.delete(doc.id);
+    if (mounted) context.showSnack('Document deleted');
   }
 
   Widget _header(BuildContext context, String? name) {

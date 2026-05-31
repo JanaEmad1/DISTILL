@@ -160,6 +160,8 @@ From `pubspec.yaml`:
 | `flutter_svg` | Renders the **official multi-color Google "G"** logo on the auth buttons. |
 | `shared_preferences` | Saves tiny local settings (theme choice, "onboarding seen"). |
 | `intl` | Date/number formatting. |
+| `share_plus` | Opens the **system share sheet** to share a document's summary + key points. |
+| `archive` | Unzips a **DOCX** (a zip) to read `word/document.xml` for clean text extraction. |
 | `mocktail` (dev) | Mocking library for tests. |
 | `integration_test` (dev) | Full-app on-device tests. |
 
@@ -579,7 +581,8 @@ what the assignment asks for.
 
 ## 2.7 Tests (what's covered and how to run them)
 
-Run unit + widget tests: `flutter test` → **52 tests, all passing.**
+Run unit + widget tests: `flutter test` → **57 tests, all passing** (was 52;
++5 from feature pass 4 — see §2.11).
 The integration test needs a device: `flutter test integration_test/app_test.dart`.
 
 - **`test/helpers/fixtures.dart`** — Factory functions for sample `AppUser`,
@@ -664,3 +667,55 @@ improvements. All changes kept `flutter analyze` clean and the tests green.
 > was the *emulator* having no documents to pick — not an app bug. Add a PDF to the
 > emulator's Downloads and it appears.
 ```
+
+## 2.11 Feature pass 4 — Copy/Share, Delete confirm, real DOCX (2026-05-31)
+
+A small, focused feature pass adding three user-requested capabilities. Every
+step is logged below, including the (clean) verification results. All changes
+follow the house rules: theme-aware (`context.colors`/`context.text`, no
+hardcoded colors), loading/error handling consistent with the rest of the app,
+and mode-aware (work through the repository interface, so demo **and** Firebase
+behave identically).
+
+### What was built
+
+| # | Feature | What changed | Files |
+|---|---------|--------------|-------|
+| 1 | **Copy & Share summary** | Document detail header now shows **Copy** and **Share** icon buttons (only when the doc `isReady`, beside the favorite toggle). Both use a new **pure** helper `buildShareText(doc)` that formats `name` + `AI Summary` + bulleted `Key Points` + a "Summarized with Distill" footer. Copy uses Flutter's built-in `Clipboard` + a "Copied to clipboard" snackbar; Share opens the system sheet via `share_plus`, wrapped in try/catch with an error snackbar. | `lib/features/documents/data/share_text.dart` (new), `lib/features/documents/ui/document_detail_screen.dart` |
+| 2 | **Delete confirmation** | The Home action-sheet **Delete** no longer deletes instantly. It now pops the sheet, then shows a confirm `AlertDialog` (Cancel / red Delete) mirroring the existing sign-out dialog, deletes only on confirm, and shows a "Document deleted" snackbar. No undo — the Firebase `delete()` also removes the Storage file + progress node, so it isn't cleanly reversible (documented honestly). | `lib/features/documents/ui/home_screen.dart` |
+| 3 | **Real DOCX extraction** | `_extractDocx` was a crude byte-decode + tag-strip that produced garbled output. It now unzips the `.docx` with `archive`, reads `word/document.xml`, converts `</w:p>`/`<w:br/>`/`<w:tab/>` to real whitespace, strips remaining XML, decodes entities (`&amp;` etc.), and collapses whitespace per line. Wrapped in try/catch that falls back to the **old** tag-strip (`_stripDocxBytes`) so a malformed file never crashes the pipeline. | `lib/shared/services/text_extraction_service.dart` |
+
+### Dependencies added
+`pubspec.yaml`: `share_plus: ^11.0.0` (resolved 11.1.0) and `archive: ^4.0.0`
+(resolved 4.0.9). `flutter pub get` → *Changed 10 dependencies* (share_plus
+pulls in `url_launcher_*`; archive pulls in `fixnum`/`posix`).
+
+### Tests added
+- `test/shared/services/text_extraction_service_test.dart` — builds a minimal
+  valid `.docx` in memory with `ZipEncoder`, asserts paragraph text is
+  extracted, markup is gone, entities are decoded, and paragraphs land on
+  separate lines; a negative case feeds non-zip bytes and asserts the fallback
+  returns text without throwing; plus a TXT round-trip.
+- `test/features/documents/data/share_text_test.dart` — asserts
+  `buildShareText` includes name/summary/every key point, and gracefully omits
+  empty sections for an in-progress document.
+- Removed the one stray `import 'package:flutter/material.dart';` in
+  `test/shared/widgets/error_view_test.dart` (the lone analyzer warning).
+
+### Errors faced
+**None.** This pass compiled and passed on the first run — no build or test
+errors. The one pre-existing analyzer warning (unused import) was removed as
+part of the work. Before coding, the `share_plus` 11.x API was verified against
+the installed package source to confirm the current call shape
+(`SharePlus.instance.share(ShareParams(text: ...))`) rather than the older
+top-level `Share.share(...)`.
+
+### Verification
+- `flutter analyze` → **No issues found!**
+- `flutter test` → **All 57 tests passed** (the previous 52 + 5 new).
+- Still to confirm on a device (can't be driven from here): upload a real
+  `.docx` and check the **Original** tab is clean text; tap **Copy**/**Share**
+  on a ready document; trigger **Delete** and confirm the dialog gates it.
+
+**Updated final state:** `flutter analyze` → *No issues found.* `flutter test`
+→ *All 57 tests passed.*

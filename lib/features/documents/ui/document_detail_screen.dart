@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/constants.dart';
 import '../../../core/di/providers.dart';
@@ -11,6 +13,7 @@ import '../../../shared/widgets/ai_badge.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/shimmer.dart';
 import '../data/models/document_model.dart';
+import '../data/share_text.dart';
 
 /// Tabbed document view: AI Summary, Key Points, and the original extracted
 /// text. Anchored by an "Ask questions" CTA that opens the document chat.
@@ -111,6 +114,18 @@ class _Header extends ConsumerWidget {
                     context.canPop() ? context.pop() : context.go('/home'),
               ),
               const Spacer(),
+              if (doc.isReady) ...[
+                IconButton(
+                  tooltip: 'Copy',
+                  icon: const Icon(Symbols.content_copy),
+                  onPressed: () => _copy(context),
+                ),
+                IconButton(
+                  tooltip: 'Share',
+                  icon: const Icon(Symbols.share),
+                  onPressed: () => _share(context),
+                ),
+              ],
               IconButton(
                 icon: Icon(doc.favorite ? Symbols.star : Symbols.star,
                     fill: doc.favorite ? 1 : 0,
@@ -142,6 +157,21 @@ class _Header extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _copy(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: buildShareText(doc)));
+    if (context.mounted) context.showSnack('Copied to clipboard');
+  }
+
+  Future<void> _share(BuildContext context) async {
+    try {
+      await SharePlus.instance.share(ShareParams(text: buildShareText(doc)));
+    } catch (_) {
+      if (context.mounted) {
+        context.showSnack("Couldn't open the share sheet.", isError: true);
+      }
+    }
   }
 }
 
