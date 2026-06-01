@@ -7,6 +7,7 @@ import '../../../core/constants.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/extensions/context_ext.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../shared/widgets/confirm_dialog.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/error_view.dart';
 import '../../../shared/widgets/shimmer.dart';
@@ -216,31 +217,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  /// Guards the destructive delete behind a confirmation dialog (mirrors the
-  /// sign-out confirm in profile_screen). Delete is permanent — in live mode it
-  /// also removes the stored file — so there is no undo.
+  /// Guards the destructive delete behind a confirmation dialog. Delete is
+  /// permanent — in live mode it also removes the stored file — so no undo.
   Future<void> _confirmDelete(DocumentModel doc) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete document?'),
-        content: Text(
-            '"${doc.name}" and its summary will be permanently deleted.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
-            style: FilledButton.styleFrom(
-                backgroundColor: context.colors.error,
-                foregroundColor: context.colors.onError),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Delete document?',
+      message: '"${doc.name}" and its summary will be permanently deleted.',
+      confirmLabel: 'Delete',
+      destructive: true,
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
     await ref.read(documentRepositoryProvider)?.delete(doc.id);
     if (mounted) context.showSnack('Document deleted');
   }

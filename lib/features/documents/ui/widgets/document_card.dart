@@ -106,12 +106,7 @@ class DocumentCard extends StatelessWidget {
       ]);
     }
     return Row(children: [
-      SizedBox(
-        width: 14,
-        height: 14,
-        child: CircularProgressIndicator(
-            strokeWidth: 2, color: context.colors.secondary),
-      ),
+      _PulsingDot(color: context.colors.secondary),
       const SizedBox(width: AppSpacing.sm),
       Text('Processing AI insights…',
           style: context.text.labelMedium
@@ -127,6 +122,47 @@ class DocumentCard extends StatelessWidget {
         Text('· ${doc.sizeBytes.readableSize} · ${doc.updatedAt.relative}',
             style: context.text.labelMedium),
       ],
+    );
+  }
+}
+
+/// A small dot that softly pulses its opacity — a calmer "in progress" cue
+/// than a spinning indicator. Owns and disposes its own controller.
+class _PulsingDot extends StatefulWidget {
+  const _PulsingDot({required this.color});
+  final Color color;
+
+  @override
+  State<_PulsingDot> createState() => _PulsingDotState();
+}
+
+class _PulsingDotState extends State<_PulsingDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 800),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: Tween<double>(begin: 0.35, end: 1.0).animate(
+        CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+      ),
+      child: Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          color: widget.color,
+          shape: BoxShape.circle,
+        ),
+      ),
     );
   }
 }

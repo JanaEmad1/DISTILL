@@ -41,11 +41,19 @@ class ProcessingScreen extends ConsumerWidget {
 
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xxl),
-          child: Column(
-            children: [
-              Align(
+        // Scroll-when-short so the centered layout never overflows on small
+        // viewports (e.g. a short Chrome window); IntrinsicHeight keeps the
+        // Spacers working when there is room.
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xxl),
+                  child: Column(
+                    children: [
+                      Align(
                 alignment: Alignment.topRight,
                 child: IconButton(
                   icon: const Icon(Symbols.close),
@@ -130,7 +138,11 @@ class ProcessingScreen extends ConsumerWidget {
                   child: const Text('Continue in background'),
                 ),
               ],
-            ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

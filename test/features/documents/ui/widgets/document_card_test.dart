@@ -28,13 +28,14 @@ void main() {
       expect(find.text('Summarized'), findsOneWidget);
     });
 
-    testWidgets('shows a processing indicator while summarizing',
+    testWidgets('shows the processing status line while summarizing',
         (tester) async {
       await tester.pumpApp(DocumentCard(
         doc: Fixtures.document(status: DocStatus.summarizing, summary: null),
         onTap: () {},
       ));
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      // The processing branch now uses a pulsing dot (no spinner) + label.
+      expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(find.text('Processing AI insights…'), findsOneWidget);
     });
 

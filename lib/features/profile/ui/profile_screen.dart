@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/extensions/context_ext.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../shared/widgets/confirm_dialog.dart';
 import '../../auth/data/models/app_user.dart';
 import '../../auth/logic/auth_controller.dart';
 
@@ -69,22 +70,13 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sign out?'),
-        content: const Text('You can sign back in at any time.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Sign out')),
-        ],
-      ),
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Sign out?',
+      message: 'You can sign back in at any time.',
+      confirmLabel: 'Sign out',
     );
-    if (confirmed == true) {
+    if (confirmed) {
       await ref.read(authControllerProvider.notifier).signOut();
     }
   }

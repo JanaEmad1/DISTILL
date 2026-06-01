@@ -48,4 +48,22 @@ void main() {
       expect(Validators.required('Alice'), isNull);
     });
   });
+
+  group('Validators.confirmPassword', () {
+    test('rejects empty', () {
+      expect(Validators.confirmPassword('', 'secret123'),
+          'Please confirm your password');
+      expect(Validators.confirmPassword(null, 'secret123'),
+          'Please confirm your password');
+    });
+
+    test('rejects a mismatch', () {
+      expect(Validators.confirmPassword('different', 'secret123'),
+          'Passwords do not match');
+    });
+
+    test('accepts an exact match', () {
+      expect(Validators.confirmPassword('secret123', 'secret123'), isNull);
+    });
+  });
 }

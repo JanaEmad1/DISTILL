@@ -23,13 +23,16 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _confirm = TextEditingController();
   bool _obscure = true;
+  bool _obscureConfirm = true;
 
   @override
   void dispose() {
     _name.dispose();
     _email.dispose();
     _password.dispose();
+    _confirm.dispose();
     super.dispose();
   }
 
@@ -89,9 +92,21 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   icon: Symbols.lock,
                   obscureText: _obscure,
                   onToggleObscure: () => setState(() => _obscure = !_obscure),
+                  textInputAction: TextInputAction.next,
+                  validator: Validators.password,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                AppTextField(
+                  controller: _confirm,
+                  label: 'Confirm password',
+                  icon: Symbols.lock,
+                  obscureText: _obscureConfirm,
+                  onToggleObscure: () =>
+                      setState(() => _obscureConfirm = !_obscureConfirm),
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) => _submit(),
-                  validator: Validators.password,
+                  validator: (v) =>
+                      Validators.confirmPassword(v, _password.text),
                 ),
                 const SizedBox(height: AppSpacing.xxl),
                 FilledButton(

@@ -581,8 +581,8 @@ what the assignment asks for.
 
 ## 2.7 Tests (what's covered and how to run them)
 
-Run unit + widget tests: `flutter test` → **57 tests, all passing** (was 52;
-+5 from feature pass 4 — see §2.11).
+Run unit + widget tests: `flutter test` → **60 tests, all passing** (52 at
+launch; +5 from feature pass 4 §2.11; +3 from UX pass 5 §2.12).
 The integration test needs a device: `flutter test integration_test/app_test.dart`.
 
 - **`test/helpers/fixtures.dart`** — Factory functions for sample `AppUser`,
@@ -719,3 +719,40 @@ top-level `Share.share(...)`.
 
 **Updated final state:** `flutter analyze` → *No issues found.* `flutter test`
 → *All 57 tests passed.*
+
+## 2.12 UX pass 5 — sign-up confirm, dialog buttons, web overflow, card cue (2026-05-31)
+
+Four UX fixes from hand-testing (including on Chrome). All theme-aware and
+mode-agnostic; loading/error behavior unchanged.
+
+| # | Issue | Fix | Files |
+|---|-------|-----|-------|
+| 1 | Sign-up had no **confirm-password** field | Added a reusable `Validators.confirmPassword(value, original)` and a "Confirm password" `AppTextField` after the password field; the password field's action is now `next`. No backend change — `signUp` still takes name/email/password. | `lib/core/validators.dart`, `lib/features/auth/ui/sign_up_screen.dart` |
+| 2 | **Confirm dialogs** stacked a right-aligned *Cancel* above a full-width button (Material action overflow) | New shared `showConfirmDialog()` renders **Cancel \| confirm** as two equal `Expanded` buttons in a `Row` (Outlined + Filled; `destructive` → red). Delete and Sign-out now both use it (DRY). | `lib/shared/widgets/confirm_dialog.dart` (new), `home_screen.dart`, `profile_screen.dart` |
+| 3 | **Processing screen overflowed ~27px on Chrome** (rigid `Column` + two `Spacer`s) | Wrapped the body in `LayoutBuilder → SingleChildScrollView → ConstrainedBox(minHeight: maxHeight) → IntrinsicHeight`. Stays centered when there's room; scrolls instead of overflowing on a short web viewport. | `lib/features/documents/ui/processing_screen.dart` |
+| 4 | Disliked the **spinning** processing indicator on Home cards | Replaced the `CircularProgressIndicator` with a `_PulsingDot` — a small dot that softly pulses opacity (own `AnimationController`, disposed). | `lib/features/documents/ui/widgets/document_card.dart` |
+
+### Error faced
+- **Pending-timer test failure.** First implemented the pulsing dot with
+  `flutter_animate`'s `.animate().fade(...).repeat()`. Its infinite repeat
+  schedules a `Timer` that the widget-test harness flags as "pending timers" at
+  teardown, failing `document_card_test`. **Fix:** replaced it with a dedicated
+  `_PulsingDot` `StatefulWidget` using a `SingleTickerProviderStateMixin`
+  `AnimationController` that is disposed in `dispose()` — clean at teardown and
+  test-friendly. The card test was updated to assert *no* `CircularProgressIndicator`
+  plus the "Processing AI insights…" label.
+
+### Tests
+- `validators_test.dart`: new `Validators.confirmPassword` group (empty /
+  mismatch / match).
+- `document_card_test.dart`: processing-branch test updated for the pulsing dot.
+
+### Verification
+- `flutter analyze` → **No issues found!**
+- `flutter test` → **All 60 tests passed** (57 + 3).
+- Still to confirm on a device/Chrome: mismatched passwords block sign-up;
+  dialogs show side-by-side buttons; Processing screen no longer overflows on a
+  short Chrome window; the card shows a pulsing dot.
+
+**Updated final state:** `flutter analyze` → *No issues found.* `flutter test`
+→ *All 60 tests passed.*

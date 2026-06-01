@@ -21,4 +21,12 @@ abstract final class Validators {
     if ((value?.trim() ?? '').isEmpty) return '$field is required';
     return null;
   }
+
+  /// Validates a "confirm password" field against the [original] password.
+  static String? confirmPassword(String? value, String original) {
+    final v = value ?? '';
+    if (v.isEmpty) return 'Please confirm your password';
+    if (v != original) return 'Passwords do not match';
+    return null;
+  }
 }
