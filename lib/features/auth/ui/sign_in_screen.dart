@@ -10,8 +10,6 @@ import '../../../core/validators.dart';
 import '../../../shared/widgets/app_logo.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../logic/auth_controller.dart';
-import 'widgets/google_button.dart';
-import 'widgets/or_divider.dart';
 
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
@@ -109,16 +107,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   child: loading
                       ? const _BtnSpinner()
                       : const Text('Sign In'),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                const OrDivider(),
-                const SizedBox(height: AppSpacing.xl),
-                GoogleButton(
-                  onPressed: loading
-                      ? null
-                      : () => ref
-                          .read(authControllerProvider.notifier)
-                          .signInWithGoogle(),
                 ),
                 const SizedBox(height: AppSpacing.xxxl),
                 Row(

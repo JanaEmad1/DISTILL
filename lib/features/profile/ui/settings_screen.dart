@@ -63,18 +63,6 @@ class SettingsScreen extends ConsumerWidget {
                     trailing: Text('1.0.0', style: context.text.labelMedium),
                   ),
                   ListTile(
-                    leading: Icon(
-                      firebaseReady ? Symbols.cloud_done : Symbols.cloud_off,
-                      color: firebaseReady
-                          ? context.colors.secondary
-                          : context.colors.onSurfaceVariant,
-                    ),
-                    title: const Text('Backend'),
-                    subtitle: Text(firebaseReady
-                        ? 'Connected to Firebase'
-                        : 'Demo mode (offline sample data)'),
-                  ),
-                  ListTile(
                     leading: const Icon(Symbols.auto_awesome),
                     title: const Text('AI'),
                     subtitle: Text(firebaseReady

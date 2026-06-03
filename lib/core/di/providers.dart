@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../firebase_options.dart';
 
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/auth/data/demo_auth_repository.dart';
@@ -70,7 +73,12 @@ final documentRepositoryProvider = Provider<DocumentRepository?>((ref) {
       uid: user.uid,
       db: FirebaseFirestore.instance,
       storage: FirebaseStorage.instance,
-      rtdb: FirebaseDatabase.instance,
+      // google-services.json carries no firebase_url, so on Android the default
+      // RTDB instance has no URL — supply it explicitly from firebase_options.
+      rtdb: FirebaseDatabase.instanceFor(
+        app: Firebase.app(),
+        databaseURL: DefaultFirebaseOptions.currentPlatform.databaseURL,
+      ),
       ai: ai,
       extractor: ref.watch(textExtractionProvider),
     );

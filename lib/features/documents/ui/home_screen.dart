@@ -16,7 +16,7 @@ import '../logic/upload_controller.dart';
 import 'widgets/document_card.dart';
 import 'widgets/upload_sheet.dart';
 
-enum _Filter { all, recent, favorites, pdfs }
+enum _Filter { all, recent, favorites }
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -45,8 +45,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     switch (_filter) {
       case _Filter.favorites:
         list = list.where((d) => d.favorite).toList();
-      case _Filter.pdfs:
-        list = list.where((d) => d.type == 'pdf').toList();
       case _Filter.recent:
         list = [...list]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       case _Filter.all:
@@ -55,17 +53,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return list;
   }
 
+  /// Context-aware empty message for when the user has documents but the current
+  /// search/filter matches none of them.
+  Widget _emptyResults() {
+    if (_query.isNotEmpty) {
+      return const EmptyState(
+        icon: Symbols.search_off,
+        title: 'No matches',
+        message: 'Try a different search.',
+      );
+    }
+    if (_filter == _Filter.favorites) {
+      return const EmptyState(
+        icon: Symbols.star,
+        title: 'No favorites yet',
+        message: 'Tap the star on any document to save it here.',
+      );
+    }
+    return const EmptyState(
+      icon: Symbols.search_off,
+      title: 'No matches',
+      message: 'Try a different filter.',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final docsAsync = ref.watch(documentsStreamProvider);
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _startUpload,
-        icon: const Icon(Symbols.add),
-        label: const Text('Upload'),
-      ),
+      // Hide the floating button on the empty state so only the centered
+      // "Upload document" CTA shows; it returns once the user has documents.
+      floatingActionButton: (docsAsync.value?.isEmpty ?? false)
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _startUpload,
+              icon: const Icon(Symbols.add),
+              label: const Text('Upload'),
+            ),
       body: SafeArea(
         child: docsAsync.when(
           loading: () => const SkeletonList(),
@@ -95,13 +121,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   )
                 else if (docs.isEmpty)
-                  const SliverFillRemaining(
+                  SliverFillRemaining(
                     hasScrollBody: false,
-                    child: EmptyState(
-                      icon: Symbols.search_off,
-                      title: 'No matches',
-                      message: 'Try a different search or filter.',
-                    ),
+                    child: _emptyResults(),
                   )
                 else
                   SliverPadding(
@@ -290,7 +312,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _Filter.all: 'All',
       _Filter.recent: 'Recent',
       _Filter.favorites: 'Favorites',
-      _Filter.pdfs: 'PDFs',
     };
     return SizedBox(
       height: 56,

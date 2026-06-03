@@ -49,13 +49,6 @@ class ProfileScreen extends ConsumerWidget {
               label: 'Settings',
               onTap: () => context.push('/settings'),
             ),
-            _SectionTile(
-              icon: Symbols.workspace_premium,
-              label: 'Subscription',
-              trailing: Text(user.subscription,
-                  style: context.text.labelMedium
-                      ?.copyWith(color: context.colors.secondary)),
-            ),
             const SizedBox(height: AppSpacing.xl),
             OutlinedButton.icon(
               onPressed: () => _confirmSignOut(context, ref),
@@ -159,12 +152,10 @@ class _SectionTile extends StatelessWidget {
     required this.icon,
     required this.label,
     this.onTap,
-    this.trailing,
   });
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
-  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -172,8 +163,7 @@ class _SectionTile extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       leading: Icon(icon, color: context.colors.onSurfaceVariant),
       title: Text(label, style: context.text.titleSmall),
-      trailing: trailing ??
-          (onTap != null ? const Icon(Symbols.chevron_right) : null),
+      trailing: onTap != null ? const Icon(Symbols.chevron_right) : null,
       onTap: onTap,
     );
   }

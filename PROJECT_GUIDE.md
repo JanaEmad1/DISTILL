@@ -99,6 +99,10 @@ A few smaller ones came up during testing:
 
 ## 1.5 What you need to do next (in order)
 
+> **Working checklist:** the live-backend bring-up is tracked as a tickable
+> checklist in **[`BACKEND_CHECKLIST.md`](BACKEND_CHECKLIST.md)** (sections A–G).
+> The prose below explains the same steps.
+
 **To just run the app right now (demo mode):**
 
 ```bash
@@ -756,3 +760,135 @@ mode-agnostic; loading/error behavior unchanged.
 
 **Updated final state:** `flutter analyze` → *No issues found.* `flutter test`
 → *All 60 tests passed.*
+
+## 2.13 Live Firebase bring-up — going to production (2026-06-02)
+
+The app was taken **live on Firebase** (project `distill-d0c18`) and verified
+end-to-end on Chrome web. `kFirebaseConfigured` is now `true`. This section is
+the running journal of the bring-up, including every error hit and its fix, per
+the project rule. Tooling installed beforehand: Node, Firebase CLI, FlutterFire
+CLI (`firebase login`, `flutterfire configure`). Services enabled in the Firebase
+console: Auth (email/password + Google), Firestore, Realtime Database
+(`europe-west1`), Firebase AI Logic (Gemini). Firestore + Realtime DB security
+rules deployed.
+
+### Errors faced and fixes (live bring-up)
+
+| Error / symptom | Cause | Fix |
+|---|---|---|
+| Realtime DB writes silently did nothing | `firebase_options.dart` was missing the `databaseURL` field in all three configs (web/android/ios) — the RTDB client had no endpoint | Added `databaseURL: 'https://distill-d0c18-default-rtdb.europe-west1.firebasedatabase.app'` to every config block |
+| Progress node never matched the rules | Realtime DB security rules validated a field named `step`, but the app writes `status` | Renamed the field in the rules `step → status` and redeployed (`firebase deploy --only database`) |
+| Cloud Storage upload hangs / throws on web (CORS) | `firebasestorage.googleapis.com` rejects the browser preflight (no bucket CORS config) — see cosmetic note below | Wrapped the `putData` upload in `try/catch` **and** `.timeout(Duration(seconds: 5))` in `document_repository.dart` so a failed/slow Storage write can't block the pipeline; the summary flow continues regardless |
+| Google sign-out could block | `GoogleSignIn.signOut()` awaited on web where it can stall | Made the Google sign-out **non-blocking** (fire-and-forget) in `auth_repository.dart` so app sign-out always completes |
+| Gemini returned **HTTP 429** `RESOURCE_EXHAUSTED`, `limit: 0` | The Gemini **Developer API free tier is `limit: 0` in the EU region** — free tier is effectively unavailable there. The project's Cloud Billing is a **free-trial** account, which does **not** grant the Developer API paid tier | Switched the AI backend from the Developer API to **Vertex AI** in `lib/core/ai/gemini_ai_service.dart`: `FirebaseAI.googleAI()` → `FirebaseAI.vertexAI()`. Vertex bills against the project's Cloud Billing (trial credit) and has no free-tier-zero trap. Enabled the **Vertex AI API** (`aiplatform.googleapis.com`). **Deliberately did NOT click "Activate full account"** — staying on the free-trial billing account preserves Google's guarantee that the card is never charged (services just stop if credit/days run out). |
+| Gemini then returned **HTTP 404** `NOT_FOUND` "Publisher Model … gemini-2.0-flash was not found" | The Vertex AI backend uses different model IDs than the Developer API; bare `gemini-2.0-flash` is not resolvable as a Vertex publisher model in `us-central1` | Changed the model `gemini-2.0-flash` → **`gemini-2.5-flash`** (current GA flash model on Vertex). Request then returned **200 OK**. |
+
+> Note: the comment header in `gemini_ai_service.dart` was updated from
+> "Gemini Developer API path" to "Vertex AI Gemini API path" with a note on the
+> EU `limit: 0` reason, so the code self-documents *why* the Vertex backend is used.
+
+### Verification (live, on Chrome)
+
+- **Summarize:** `POST …/models/gemini-2.5-flash:generateContent` → **200 OK**;
+  summary + key points render in the app.
+- **Chat:** asking a question about the document streams a correct answer
+  (second `generateContent` → 200).
+- **Realtime Database:** `progress/<uid>/<docId>` shows `status: "ready"`,
+  `percent: 100` — the full pipeline completed.
+- **Firestore:** `users/<uid>/documents/<docId>` holds the `summary`,
+  `keyPoints`, `title`, and `status: ready` — the summary persisted to the cloud.
+- **Auth:** email/password sign-in works.
+
+### Known remaining (non-blocking / cosmetic)
+
+1. **Cloud Storage CORS on web** — uploads to `firebasestorage.googleapis.com`
+   still fail the browser CORS preflight, so the console shows repeated
+   `blocked by CORS policy` / `ERR_FAILED` noise. **It does not affect the app**:
+   the upload is wrapped in `try/catch + .timeout(5s)` (above), and the AI
+   pipeline reads text without needing the stored file. To silence it, set a CORS
+   policy on the bucket, e.g. `cors.json` =
+   `[{"origin":["*"],"method":["GET","POST","PUT"],"maxAgeSeconds":3600,"responseHeader":["Content-Type","Authorization"]}]`
+   then `gsutil cors set cors.json gs://distill-d0c18.firebasestorage.app`
+   (or via the Google Cloud console). Cosmetic only.
+2. ~~**Google sign-in on web** is not fully configured.~~ **Resolved** — see
+   "Web Google sign-in" below.
+
+### Web Google sign-in (resolved)
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| "Continue with Google" did nothing on Chrome | `signInWithGoogle()` used `GoogleSignIn.instance.authenticate()` (google_sign_in **v7**), whose interactive flow is a mobile API — **not supported on Flutter web** (web needs the GIS rendered-button flow) | Made `signInWithGoogle()` in `lib/features/auth/data/auth_repository.dart` **`kIsWeb`-aware**: on web it calls `FirebaseAuth.signInWithPopup(GoogleAuthProvider())` (Firebase's native web popup — uses the project `authDomain`, no client-ID meta tag or `index.html` edit); on mobile it keeps the existing `google_sign_in` flow. Added friendly `_mapError` cases for `popup-closed-by-user` / `cancelled-popup-request` ("Google sign-in was cancelled.") and `popup-blocked`. `flutter analyze` on the file → **No issues found**. |
+
+No console change was needed beyond the already-enabled Google provider —
+`localhost` is an authorized domain by default, so `flutter run -d chrome` works.
+**To verify in the browser:** click *Continue with Google* → account popup →
+lands on Home; the account appears in **Auth → Users** and a `users/{uid}` doc is
+created. (Mobile Google flow unchanged; not driven from this environment.)
+
+### Android ran in DEMO mode — `duplicate-app` fix (resolved)
+
+Verified live on an Android emulator (`Pixel_4_2`). Web worked but **Android
+silently fell back to demo mode** (fresh account showed seeded demo docs, stub
+chat/key-points). Two Android-only fixes:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Android always in demo mode (web fine) | On Android the native SDK auto-initializes the default app from `google-services.json`; the Dart `Firebase.initializeApp(options:)` in `main.dart` then threw `[core/duplicate-app]`, the `catch` left `firebaseReady = false` → demo repos + stub AI. (`Firebase.apps` can read empty in Dart at that point, so guarding on it alone is unreliable.) | `lib/main.dart` now skips init if `Firebase.apps` is non-empty **and** catches `FirebaseException` `duplicate-app`, treating it as success (`firebaseReady = true`) — Firebase is already up natively. Confirmed by the runtime log line `Firebase init failed; falling back to demo mode: [core/duplicate-app]` disappearing and a new account starting empty. |
+| RTDB progress would misroute on Android | `google-services.json` has `project_id` + `storage_bucket` but **no `firebase_url`**, so the native default app's `FirebaseDatabase.instance` has no Realtime DB URL | `lib/core/di/providers.dart` builds RTDB with `FirebaseDatabase.instanceFor(app: Firebase.app(), databaseURL: DefaultFirebaseOptions.currentPlatform.databaseURL)`, reusing the `europe-west1` URL already in `firebase_options.dart`. Same value on web, so unchanged there. |
+
+**Verified on the emulator:** a brand-new account starts with **zero documents**
+(live, not demo); upload → real Gemini summary + key points; chat streams and
+persists; data appears in Auth/Firestore/Realtime DB. On Android the Storage
+upload works natively (no CORS). `flutter analyze` clean.
+
+**Final state:** App runs **live on Firebase** on both **Chrome (web)** and the
+**Android emulator**. Summarize + chat verified, data confirmed in Firestore and
+Realtime Database. Still on the **free-trial** billing account (no charges; $5
+budget alert set). `flutter analyze` clean; 60 tests green (the live gating is
+demo-mode-agnostic in tests). Remaining optional item: **Google sign-in on
+Android** needs the debug SHA-1 registered + `google_sign_in` `initialize(serverClientId:)`
+(the web popup path already works).
+
+## 2.14 UI polish pass — splash, settings cleanup, empty-Home button (2026-06-03)
+
+Visual/UX fixes only — **no functional change**. Theme-aware, loading/error and
+repository/demo-live behavior untouched. `flutter analyze` clean; 60 tests still
+green (no tests touch these surfaces).
+
+| # | Issue | Fix | Files |
+|---|-------|-----|-------|
+| 1 | **Splash flashed white** before the navy Flutter splash | The native Android launch screen was white. Added `android/app/src/main/res/values/colors.xml` (`splash_background = #FF00236F`, = `AppColors.primary`), pointed both `drawable/launch_background.xml` and `drawable-v21/launch_background.xml` at it, and set `android:windowSplashScreenBackground` (Android 12+) on `LaunchTheme` in `values/styles.xml` + `values-night/styles.xml`. Now navy from the first frame. | `android/app/src/main/res/...` |
+| 2 | **Navy didn't reach the bottom** (a system nav-bar strip showed through) | `app.dart`'s global overlay paints the nav bar `surface`. Wrapped the splash `Scaffold` in its own `AnnotatedRegion<SystemUiOverlayStyle>` with `systemNavigationBarColor: AppColors.primary` + transparent/light status bar (nearest-wins; only affects the splash). | `splash_screen.dart` |
+| 3 | Splash **too fast** | Bumped the minimum splash delay `1600ms → 2400ms` in `_decideNext`. | `splash_screen.dart` |
+| 4 | **"Subscription"** row in Profile, **"Backend"** row in Settings → not wanted | Removed the Subscription `_SectionTile` (Profile) and the Backend `ListTile` (Settings → About). Also dropped the now-unused `trailing` param from `_SectionTile`. `AppUser.subscription` left in the model (harmless). Version + AI rows kept. | `profile_screen.dart`, `settings_screen.dart` |
+| 5 | Empty Home showed the **Upload button twice** (FAB + centered CTA) | Made the Scaffold's `floatingActionButton` conditional: `null` when `docsAsync.value` is empty, so only the centered `EmptyState` "Upload document" CTA shows on first run; the FAB returns once the user has documents (incl. when a filter yields no matches). | `home_screen.dart` |
+
+> Note: Localization (multi-language) was scoped and intentionally **deferred** —
+> the app has no i18n framework and full coverage was judged too risky for this
+> "don't break the working app" pass.
+
+**Final state:** `flutter analyze` → *No issues found.* `flutter test` → *All 60
+tests passed.* Splash/settings/Home verified on the Android emulator + web.
+
+## 2.15 Pre-test pass — filters, favorites empty-state, TXT key points, Google removal (2026-06-03)
+
+More fixes before device testing. Functional pipeline untouched; `flutter analyze`
+clean, 60 tests still green.
+
+| # | Issue | Fix | Files |
+|---|-------|-----|-------|
+| 1 | Home had only a **"PDFs"** type filter | Removed the type filter — `_Filter` enum is now `all / recent / favorites`; dropped the `pdfs` `_apply` case and chip label. | `home_screen.dart` |
+| 2 | **Favorites** filter with nothing starred showed the generic *"No matches"* | New `_emptyResults()` picks a context-aware `EmptyState`: search → "No matches / Try a different search"; favorites → **"No favorites yet / Tap the star on any document to save it here"** (star icon). | `home_screen.dart` |
+| 3 | **TXT** summaries put key points inside the Summary; **Key Points tab empty** (PDF was fine) | Root cause: the model's reply wasn't always valid JSON (raw newlines in TXT summaries), so `_parseSummary` fell back to `summary = raw blob, keyPoints = []`. Fix: gave summarization its **own Gemini model with structured output** — `GenerationConfig(responseMimeType: 'application/json', responseSchema: Schema.object({summary, keyPoints[]}))`. Reply is now always valid JSON → both fields parse for every file type. Chat uses a separate plain-text model (`_chatModel`). | `gemini_ai_service.dart` |
+| 5 | Remove **"Continue with Google"** from auth | Deleted the `GoogleButton` + `OrDivider` (and their imports) from `sign_in_screen.dart` and `sign_up_screen.dart`. Email/password is the sole path. Left `signInWithGoogle()` in the repos + the unused widget files in place (dead code, no analyzer impact) to avoid touching the auth interface. | `sign_in_screen.dart`, `sign_up_screen.dart` |
+
+### Item 4 — upload limits & concurrency (answered, no code change)
+- **Total documents:** unlimited (no cap in code).
+- **Per upload:** one file (`file_service.dart` uses `result.files.single`; the picker is single-select).
+- **Size:** 50 MB max (`AppConstants.maxFileSizeBytes`); the AI reads the first **24 000 chars** (`maxContextChars`).
+- **Concurrency:** processing is fire-and-forget (`unawaited(_runPipeline)` in `document_repository.dart`),
+  so multiple documents *can* process at once — upload them back-to-back; each runs its own
+  background pipeline with independent progress. (No multi-select picker by choice.)
+
+**Final state:** `flutter analyze` → *No issues found.* `flutter test` → *All 60
+tests passed.*

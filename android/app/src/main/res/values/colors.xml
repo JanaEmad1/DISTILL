@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Distill brand navy = AppColors.primary (Color(0xFF00236F)). Used for the
+         native launch splash so it matches the Flutter navy splash with no flash. -->
+    <color name="splash_background">#FF00236F</color>
+</resources>

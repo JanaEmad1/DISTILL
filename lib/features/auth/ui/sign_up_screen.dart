@@ -8,8 +8,6 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/validators.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../logic/auth_controller.dart';
-import 'widgets/google_button.dart';
-import 'widgets/or_divider.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -119,16 +117,6 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                               strokeWidth: 2,
                               color: Theme.of(context).colorScheme.onPrimary))
                       : const Text('Create account'),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                const OrDivider(),
-                const SizedBox(height: AppSpacing.xl),
-                GoogleButton(
-                  onPressed: loading
-                      ? null
-                      : () => ref
-                          .read(authControllerProvider.notifier)
-                          .signInWithGoogle(),
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 Row(

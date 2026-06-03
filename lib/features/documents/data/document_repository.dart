@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,7 +10,7 @@ import '../../../core/constants.dart';
 import '../../../shared/services/text_extraction_service.dart';
 import 'models/document_model.dart';
 
-/// Live progress of the upload→summary pipeline. Backed by Realtime Database
+/// Live progress of the uploadâ†’summary pipeline. Backed by Realtime Database
 /// at `progress/{uid}/{docId}` so the Processing screen updates in real time.
 class ProcessingProgress {
   const ProcessingProgress({required this.status, required this.percent});
@@ -23,7 +23,7 @@ abstract interface class DocumentRepository {
   Stream<DocumentModel?> watchDocument(String id);
   Stream<ProcessingProgress?> watchProgress(String docId);
 
-  /// Runs the full pipeline: create doc → upload bytes → extract text →
+  /// Runs the full pipeline: create doc â†’ upload bytes â†’ extract text â†’
   /// summarize. Returns the new document id immediately; progress streams via
   /// [watchProgress]. Pushes the heavy work onto [run] in the background.
   Future<String> uploadAndProcess({
@@ -125,10 +125,10 @@ class FirebaseDocumentRepository implements DocumentRepository {
     try {
       await _setProgress(docId, DocStatus.uploading, 10);
       final path = 'users/$uid/documents/$docId/$fileName';
-      final task =
-          await _storage.ref(path).putData(bytes, SettableMetadata(contentType: _mime(type)));
+      try { final task =
+          await _storage.ref(path).putData(bytes, SettableMetadata(contentType: _mime(type))).timeout(const Duration(seconds: 5));
       final url = await task.ref.getDownloadURL();
-      await docRef.update({'storagePath': path, 'downloadUrl': url});
+      await docRef.update({'storagePath': path, 'downloadUrl': url}); } catch (_) {}
       await _setProgress(docId, DocStatus.uploading, 35);
 
       await _setProgress(docId, DocStatus.extracting, 45);

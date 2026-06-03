@@ -1,5 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'models/app_user.dart';
@@ -99,6 +100,14 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<AppUser> signInWithGoogle() async {
     try {
+      // Web: google_sign_in v7's interactive authenticate() is not supported in
+      // the browser, so use Firebase Auth's native popup (handled via the
+      // project's authDomain — no client-ID meta tag needed).
+      if (kIsWeb) {
+        final cred = await _auth.signInWithPopup(GoogleAuthProvider());
+        return _ensureUserDoc(cred.user!);
+      }
+      // Mobile/desktop: the instance-based google_sign_in flow.
       final google = GoogleSignIn.instance;
       final account = await google.authenticate();
       final auth = account.authentication;
@@ -135,7 +144,7 @@ class FirebaseAuthRepository implements AuthRepository {
 
   @override
   Future<void> signOut() async {
-    await GoogleSignIn.instance.signOut();
+    try { await GoogleSignIn.instance.signOut(); } catch (_) {}
     await _auth.signOut();
   }
 
@@ -149,6 +158,11 @@ class FirebaseAuthRepository implements AuthRepository {
         'email-already-in-use' => 'An account already exists for that email.',
         'weak-password' => 'Please choose a stronger password (6+ characters).',
         'network-request-failed' => 'No internet connection.',
+        'popup-closed-by-user' ||
+        'cancelled-popup-request' =>
+          'Google sign-in was cancelled.',
+        'popup-blocked' =>
+          'Your browser blocked the sign-in popup. Allow popups and try again.',
         _ => e.message ?? 'Authentication failed. Please try again.',
       };
 }

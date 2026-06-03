@@ -15,10 +15,24 @@ Future<void> main() async {
   var firebaseReady = false;
   if (kFirebaseConfigured) {
     try {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
+      // On Android the native SDK auto-initializes the default app from
+      // google-services.json, so a second initializeApp() throws
+      // [core/duplicate-app]. (Firebase.apps can still read empty in Dart at
+      // this point, so guarding on it isn't reliable.) Skip if an app already
+      // exists; otherwise initialize (web).
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      }
       firebaseReady = true;
+    } on FirebaseException catch (e) {
+      // duplicate-app means Firebase is already up natively — that's success.
+      if (e.code == 'duplicate-app') {
+        firebaseReady = true;
+      } else {
+        debugPrint('Firebase init failed; falling back to demo mode: $e');
+      }
     } catch (e) {
       debugPrint('Firebase init failed; falling back to demo mode: $e');
     }

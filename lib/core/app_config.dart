@@ -11,4 +11,4 @@
 ///   4. Flip this flag to `true` and hot-restart.
 ///
 /// See FIREBASE_SETUP.md for the full walkthrough.
-const bool kFirebaseConfigured = false;
+const bool kFirebaseConfigured = true;

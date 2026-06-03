@@ -5,18 +5,39 @@ import 'package:firebase_ai/firebase_ai.dart';
 import '../constants.dart';
 import 'ai_service.dart';
 
-/// AiService backed by Firebase AI Logic (Gemini Developer API path).
+/// AiService backed by Firebase AI Logic (Vertex AI Gemini API path).
 ///
 /// The API key lives in the Firebase project, never in the app bundle, and
-/// requests are protected by App Check. Uses gemini-2.0-flash for low latency
-/// and free-tier friendliness.
+/// requests are protected by App Check. Uses gemini-2.0-flash for low latency.
+/// Vertex backend is used so requests bill against the project's Cloud Billing
+/// (paid/trial) quota rather than the Developer API free tier, which returns
+/// limit: 0 in the EU region.
 class GeminiAiService implements AiService {
   GeminiAiService()
-      : _model = FirebaseAI.googleAI().generativeModel(
-          model: 'gemini-2.0-flash',
+      : _summaryModel = FirebaseAI.vertexAI().generativeModel(
+          model: 'gemini-2.5-flash',
+          // Structured output: force a valid JSON object so the summary and key
+          // points are always parsed cleanly (raw-newline replies used to break
+          // jsonDecode and collapse the key points into the summary, esp. TXT).
+          generationConfig: GenerationConfig(
+            responseMimeType: 'application/json',
+            responseSchema: Schema.object(
+              properties: {
+                'summary': Schema.string(),
+                'keyPoints': Schema.array(items: Schema.string()),
+              },
+            ),
+          ),
+        ),
+        _chatModel = FirebaseAI.vertexAI().generativeModel(
+          model: 'gemini-2.5-flash',
         );
 
-  final GenerativeModel _model;
+  /// JSON-structured model for one-shot summaries.
+  final GenerativeModel _summaryModel;
+
+  /// Plain-text streaming model for document chat.
+  final GenerativeModel _chatModel;
 
   String _clip(String text) => text.length > AppConstants.maxContextChars
       ? text.substring(0, AppConstants.maxContextChars)
@@ -37,7 +58,7 @@ ${_clip(text)}
 """''';
 
     try {
-      final res = await _model.generateContent([Content.text(prompt)]);
+      final res = await _summaryModel.generateContent([Content.text(prompt)]);
       final raw = res.text;
       if (raw == null || raw.trim().isEmpty) {
         throw AiException('The model returned an empty summary.');
@@ -99,7 +120,7 @@ ${historyText.isEmpty ? '' : 'CONVERSATION SO FAR:\n$historyText\n'}
 USER QUESTION: $question''';
 
     try {
-      final stream = _model.generateContentStream([Content.text(prompt)]);
+      final stream = _chatModel.generateContentStream([Content.text(prompt)]);
       await for (final chunk in stream) {
         final t = chunk.text;
         if (t != null && t.isNotEmpty) yield t;
