@@ -1,0 +1,67 @@
+// SUBMISSION-SAFE TEMPLATE — copy to `firebase_options.dart` and fill in YOUR
+// own Firebase project's values, OR (recommended) run:
+//
+//     dart pub global activate flutterfire_cli
+//     flutterfire configure
+//
+// …and the FlutterFire CLI will regenerate `firebase_options.dart` for you.
+//
+// The real `lib/firebase_options.dart` is .gitignored so project-specific API
+// keys never reach a public repo. This `.example` file is intentionally NOT a
+// `.dart` file (note the trailing `.example`) so the Dart analyzer ignores it
+// and there is no duplicate-class conflict with the real file.
+
+import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
+
+class DefaultFirebaseOptions {
+  static FirebaseOptions get currentPlatform {
+    if (kIsWeb) {
+      return web;
+    }
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return android;
+      case TargetPlatform.iOS:
+        return ios;
+      default:
+        throw UnsupportedError(
+          'DefaultFirebaseOptions are not configured for this platform. '
+          'Run `flutterfire configure` to regenerate.',
+        );
+    }
+  }
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'YOUR_WEB_API_KEY',
+    appId: 'YOUR_WEB_APP_ID',
+    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
+    projectId: 'your-firebase-project-id',
+    databaseURL:
+        'https://YOUR-PROJECT-default-rtdb.YOUR-REGION.firebasedatabase.app',
+    authDomain: 'your-firebase-project-id.firebaseapp.com',
+    storageBucket: 'your-firebase-project-id.firebasestorage.app',
+  );
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'YOUR_ANDROID_API_KEY',
+    appId: 'YOUR_ANDROID_APP_ID',
+    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
+    projectId: 'your-firebase-project-id',
+    databaseURL:
+        'https://YOUR-PROJECT-default-rtdb.YOUR-REGION.firebasedatabase.app',
+    storageBucket: 'your-firebase-project-id.firebasestorage.app',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'YOUR_IOS_API_KEY',
+    appId: 'YOUR_IOS_APP_ID',
+    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
+    projectId: 'your-firebase-project-id',
+    databaseURL:
+        'https://YOUR-PROJECT-default-rtdb.YOUR-REGION.firebasedatabase.app',
+    storageBucket: 'your-firebase-project-id.firebasestorage.app',
+    iosBundleId: 'com.example.yourapp',
+  );
+}
