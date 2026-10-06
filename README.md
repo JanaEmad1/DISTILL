@@ -91,6 +91,45 @@ To run against your own Firebase project (real Gemini, real cloud storage):
 
 ---
 
+## How it works
+
+```mermaid
+flowchart LR
+    U[User uploads<br/>PDF / DOCX / TXT] --> X[On-device text extraction<br/>syncfusion PDF · archive DOCX]
+    X --> S[(Cloud Storage<br/>+ Firestore)]
+    X --> C{Clip to 24,000 chars}
+    C --> G1[Gemini 2.5 Flash<br/>JSON mode]
+    G1 --> R[Summary + 3-6 key points]
+    C --> G2[Gemini 2.5 Flash<br/>streaming chat]
+    Q[User question] --> G2
+    G2 --> A[Answer streamed in,<br/>saved per document]
+```
+
+Text is extracted **on the device**, so the AI sees plain text, not the raw file. Summaries use JSON mode so the
+app can render the key points reliably, and chat reuses the same extracted text as context.
+
+## Business impact
+
+**Who it is for:** students, analysts, lawyers and consultants who have to work through documents faster than they can
+read them.
+
+An illustrative estimate, using assumptions you can swap for real figures:
+
+| Assumption | Value |
+|---|---|
+| Typical document | 6-page report ≈ 3,500 words (fits the 24,000-character context) |
+| Reading speed | 238 words/min → **≈ 15 min** to read in full |
+| Reading the summary + key points (~300 words) | **≈ 1.5 min** |
+| Team | 10 people × 5 documents/day |
+
+**≈ 13 minutes saved per document → ≈ 11 hours a day across the team** to spend on deciding rather than reading, plus
+follow-up questions answered from the document itself instead of a re-read.
+
+**Before using it on long documents:** the app currently sends only the **first 24,000 characters** (about 4,000 words)
+to the model. A 30-page contract would be summarised from its first few pages, so the time saving above only holds
+for documents within that limit. The next step is chunked map-reduce summarisation, then labelling which pages each
+key point came from so readers can check the source.
+
 ## Testing
 
 ```bash
