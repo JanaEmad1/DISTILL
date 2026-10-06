@@ -187,4 +187,4 @@ test_samples/               sample TXT/DOCX for manual testing
 
 ## License
 
-For coursework / portfolio use. Reach out before reusing in commercial work.
+For portfolio use. Reach out before reusing in commercial work.
